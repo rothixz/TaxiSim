@@ -6,16 +6,20 @@ public class World {
     File mapFile;
     int [][] mapMatrix;
     List<Coordinate> emptyPos;
+    List<Coordinate> stackPos;
     List<Client> clients;
     List<Driver> availableDrivers;
     Map<Driver, Client> trips;
+    private Window window;
     private int readyToDraw;
     private int height, width;
     private boolean allMoved = false;
 
-    public World(String mapFilename) {
+    public World(String mapFilename, Window window) {
+        this.window = window;
         mapFile = new File(mapFilename);
         clients = new ArrayList<Client>();
+        stackPos = new ArrayList<Coordinate>();
         trips = new Hashtable<>();
         availableDrivers =  new ArrayList<Driver>();
         readyToDraw = 0;
@@ -37,7 +41,7 @@ public class World {
                 if(mapMatrix[y][x] == 1)
                     sb.append(" ");
                 else if(mapMatrix[y][x] == 0)
-                    sb.append("\u25A0");
+                    sb.append("@");
                 else if(mapMatrix[y][x] == 2)
                     sb.append("C");
                 else if(mapMatrix[y][x] == 3)
@@ -46,6 +50,7 @@ public class World {
             sb.append("\n");
         }
 
+        window.updateGUI(sb.toString());
         System.out.print(sb.toString() + "\n");
     }
 
@@ -178,6 +183,11 @@ public class World {
     private void moveInMap(Object o, Coordinate to){
         Coordinate from = null;
 
+        if(!emptyPos.contains(to))
+            stackPos.add(to);
+        else
+            emptyPos.remove(to);
+
         if (o instanceof Client) {
             from = ((Client) o).getPos();
             ((Client) o).setPrevPos(from);
@@ -192,8 +202,12 @@ public class World {
             mapMatrix[to.getY()][to.getX()] = 3;
         }
 
-        mapMatrix[from.getY()][from.getX()] = 1;
-        emptyPos.add(from);
+        if(!stackPos.contains(from)){
+            mapMatrix[from.getY()][from.getX()] = 1;
+            emptyPos.add(from);
+        } else {
+            stackPos.remove(from);
+        }
     }
 
     private Driver getClosestDriver(Client c){
@@ -211,7 +225,7 @@ public class World {
         return d;
     }
 
-    public Coordinate getEmptyPosition(){
+    public Coordinate removeEmptyPosition(){
         int randomEmptyPosIdx = ThreadLocalRandom.current().nextInt(0, emptyPos.size());
 
         return emptyPos.remove(randomEmptyPosIdx);
