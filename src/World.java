@@ -37,7 +37,7 @@ public class World {
                 if(mapMatrix[y][x] == 1)
                     sb.append(" ");
                 else if(mapMatrix[y][x] == 0)
-                    sb.append("@");
+                    sb.append("\u25A0");
                 else if(mapMatrix[y][x] == 2)
                     sb.append("C");
                 else if(mapMatrix[y][x] == 3)
