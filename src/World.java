@@ -1,103 +1,75 @@
-import java.io.*;
 import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.Semaphore;
 
 public class World {
-    File mapFile;
-    int [][] mapMatrix;
-    List<Coordinate> emptyPos;
+    Map map;
     List<Coordinate> stackPos;
-    List<Client> clients;
-    List<Driver> availableDrivers;
-    Map<Driver, Client> trips;
-    private Window window;
+    List <TaxiUser> clients;
+    List<TaxiUser> availableDrivers;
+    Hashtable <TaxiUser, TaxiUser> trips;
     private int readyToDraw;
-    private int height, width;
     private boolean allMoved = false;
+    Semaphore cli = new Semaphore(2);
+    Semaphore dri = new Semaphore(1);
 
-    public World(String mapFilename, Window window) {
-        this.window = window;
-        mapFile = new File(mapFilename);
-        clients = new ArrayList<Client>();
+    public World(Map map) {
+        this.map = map;
+        clients = new ArrayList<TaxiUser>();
         stackPos = new ArrayList<Coordinate>();
-        trips = new Hashtable<>();
-        availableDrivers =  new ArrayList<Driver>();
+        trips = new Hashtable<TaxiUser, TaxiUser>();
+        availableDrivers =  new ArrayList<TaxiUser>();
         readyToDraw = 0;
     }
 
-    public boolean loadMap() throws IOException {
-        height = MapUtils.countFileRows(mapFile);
-        width = MapUtils.countFileColumns(mapFile);
-        mapMatrix = MapUtils.fileToMatrix(mapFile);
-        emptyPos = MapUtils.getEmptyPos(mapMatrix);
-        return true;
-    }
+    public TaxiUser callDriver(TaxiUser c){
+        assert (!map.getEmptyPos().isEmpty());
 
-    public void printAnsiMap(){
-        StringBuilder sb = new StringBuilder();
-
-        for(int y=0; y<height; y++){
-            for(int x=0; x<width; x++){
-                if(mapMatrix[y][x] == 1)
-                    sb.append(" ");
-                else if(mapMatrix[y][x] == 0)
-                    sb.append("@");
-                else if(mapMatrix[y][x] == 2)
-                    sb.append("C");
-                else if(mapMatrix[y][x] == 3)
-                    sb.append("T");
-            }
-            sb.append("\n");
+        try {
+            cli.acquire();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
 
-        window.updateGUI(sb.toString());
-        System.out.print(sb.toString() + "\n");
-    }
+        synchronized (this) {
 
-    public synchronized Driver callDriver(Client c){
-        mapMatrix[c.getPos().getY()][c.getPos().getX()] = 2;
-        printAnsiMap();
+            map.addTaxiUser(c);
 
-        clients.add(c);
+            assert (c.getPos() != null);
 
-        notifyAll();
+            clients.add(c);
 
-        while(availableDrivers.isEmpty()){
-            try {
-                //System.out.println("CallDriver wait");
-                wait();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+            notifyAll();
+
+            while (availableDrivers.isEmpty()) {
+                try {
+                    //System.out.println("CallDriver wait");
+                    wait();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
-        }
 
-        //System.out.println("CallDriver gonna call");
-        Driver d = getClosestDriver(c);
-        availableDrivers.remove(d);
-        trips.put(d, c);
-        notifyAll();
+            //System.out.println("CallDriver gonna call");
+            TaxiUser d = getClosestDriver(c);
+            availableDrivers.remove(d);
+            trips.put(d, c);
+            notifyAll();
+
+
 
         return d;
-    }
-
-    public synchronized void waitDriver(Client c, Driver d){
-        while(d.getPos().getX() != c.getPos().getX() && d.getPos().getY() != c.getPos().getY()){
-            try {
-                //System.out.println("Waiting for the driver to pick me up [C]" + Thread.currentThread().getId());
-
-                wait();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
         }
-
-        //System.out.println("Driver picked me up [C]" + Thread.currentThread().getId());
     }
 
-    public synchronized Client waitClient(Driver d){
-        mapMatrix[d.getPos().getY()][d.getPos().getX()] = 3;
-        printAnsiMap();
+    public synchronized TaxiUser waitClient(TaxiUser d){
+        assert (!map.getEmptyPos().isEmpty());
+
+        map.addTaxiUser(d);
+        assert (d.getPos() != null);
+
         availableDrivers.add(d);
+        assert (!availableDrivers.isEmpty());
+
         notifyAll();
 
         while(!trips.containsKey(d)){
@@ -111,13 +83,92 @@ public class World {
 
         //System.out.println("A client chose me [D]" + Thread.currentThread().getId());
 
+        assert (!trips.isEmpty());
+
         return trips.get(d);
     }
 
-    private boolean reachedClient(Driver d, Client c){
+    public void waitDriver(TaxiUser c, TaxiUser d){
+        assert (trips.containsValue(c));
+
+        synchronized (this){
+            while(isSamePos(c, d)){
+                try {
+                    //System.out.println("Waiting for the driver to pick me up [C]" + Thread.currentThread().getId());
+                    wait();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        //System.out.println("Driver picked me up [C]" + Thread.currentThread().getId());
+        cli.release();
+    }
+
+    public synchronized void driveToClient(TaxiUser d, TaxiUser c){
+        assert (d.getPos() != null && c.getPos() != null);
+
+        List<Coordinate> itinerary = MapUtils.getShortestItenerary(map, c.getPos(),d.getPos());
+
+        assert (itinerary.size() > 1);
+
+        try {
+            while (!isSamePos(d, c)){
+                Coordinate newPos = itinerary.remove(1);
+                map.moveInMap(d, newPos);
+                notifyAll();
+
+                while (!allMoved){
+                    wait();
+                }
+
+                readyToDraw++;
+
+                //System.out.println("I drove one square meter [D]" + Thread.currentThread().getId());
+
+                if(readyToDraw == trips.size()){
+                    map.printAnsiMap();
+                    allMoved = false;
+                    readyToDraw = 0;
+
+                    notifyAll();
+                }
+
+                while (allMoved){
+                    wait();
+                }
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        trips.remove(d);
+        System.out.println("I reached the client [D]" + d.getItemId());
+    }
+
+    private TaxiUser getClosestDriver(TaxiUser c){
+        assert (c.getPos() != null);
+
+        double minDuration = Integer.MAX_VALUE;
+        TaxiUser d = null;
+
+        for(TaxiUser obj: availableDrivers){
+            double eta = MapUtils.getIteneraryDuration(MapUtils.getShortestItenerary(map, c.getPos(),obj.getPos()));
+            if(eta<minDuration){
+                minDuration = eta;
+                d = obj;
+            }
+        }
+
+        assert (d != null);
+
+        return d;
+    }
+
+    private boolean isSamePos(TaxiUser d, TaxiUser c){
         //System.out.println("Driver in pos: (" + d.getPos().getX() + ", " + d.getPos().getY() + ") and client in pos (" + c.getPos().getX() + ", " + c.getPos().getY() +")");
         return d.getPos().getX() == c.getPos().getX() && d.getPos().getY() == c.getPos().getY();
-
     }
 
     public synchronized void drawMap(){
@@ -134,100 +185,14 @@ public class World {
     }
 
     private boolean allDriversMoved(){
-        for(Driver d: trips.keySet()){
+        assert (trips != null);
+
+        for(TaxiUser d: trips.keySet()){
             if(d.getPrevPos() == d.getPos()){
                 return false;
             }
         }
 
         return true;
-    }
-
-    public synchronized void driveToClient(Driver d, Client c){
-        List<Coordinate> itinerary = MapUtils.getShortestItenerary(mapMatrix, c.getPos(),d.getPos());
-
-        try {
-            while (!reachedClient(d, c)){
-                Coordinate newPos = itinerary.remove(1);
-                moveInMap(d, newPos);
-                notifyAll();
-
-                while (!allMoved){
-                    wait();
-                }
-
-                readyToDraw++;
-
-                //System.out.println("I drove one square meter [D]" + Thread.currentThread().getId());
-
-                if(readyToDraw == trips.size()){
-                    printAnsiMap();
-                    allMoved = false;
-                    readyToDraw = 0;
-
-                    notifyAll();
-                }
-
-                while (allMoved){
-                    wait();
-                }
-            }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        trips.remove(d);
-        System.out.println("I reached the client [D]" + Thread.currentThread().getId());
-    }
-
-    private void moveInMap(Object o, Coordinate to){
-        Coordinate from = null;
-
-        if(!emptyPos.contains(to))
-            stackPos.add(to);
-        else
-            emptyPos.remove(to);
-
-        if (o instanceof Client) {
-            from = ((Client) o).getPos();
-            ((Client) o).setPrevPos(from);
-            ((Client) o).setPos(to);
-            mapMatrix[to.getY()][to.getX()] = 2;
-
-        }
-        else if (o instanceof Driver){
-            from = ((Driver) o).getPos();
-            ((Driver) o).setPrevPos(from);
-            ((Driver) o).setPos(to);
-            mapMatrix[to.getY()][to.getX()] = 3;
-        }
-
-        if(!stackPos.contains(from)){
-            mapMatrix[from.getY()][from.getX()] = 1;
-            emptyPos.add(from);
-        } else {
-            stackPos.remove(from);
-        }
-    }
-
-    private Driver getClosestDriver(Client c){
-        double minDuration = Integer.MAX_VALUE;
-        Driver d = null;
-
-        for(Driver obj: availableDrivers){
-            double eta = MapUtils.getIteneraryDuration(MapUtils.getShortestItenerary(mapMatrix, c.getPos(),obj.getPos()));
-            if(eta<minDuration){
-                minDuration = eta;
-                d = obj;
-            }
-        }
-
-        return d;
-    }
-
-    public Coordinate removeEmptyPosition(){
-        int randomEmptyPosIdx = ThreadLocalRandom.current().nextInt(0, emptyPos.size());
-
-        return emptyPos.remove(randomEmptyPosIdx);
     }
 }

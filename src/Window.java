@@ -4,7 +4,7 @@ import java.awt.Font;
 import javax.swing.JEditorPane;
 
 public class Window extends JFrame {
-    private JTextArea countLabel1 = new JTextArea("");
+    private JTextPane countLabel1 = new JTextPane();
 
     public Window(String title) {
         super(title);
