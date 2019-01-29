@@ -9,7 +9,7 @@ public class TaxiSim {
         Window window = new Window("teste");
         System.out.println(ANSI_RED + "This text is red!" + ANSI_RESET);
 
-        Map map = new Map(args[0], window);
+        SharedWorld map = new SharedWorld(args[0], window);
         map.loadMap();
 
         World world = new World(map);

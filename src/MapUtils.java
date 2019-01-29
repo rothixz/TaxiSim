@@ -108,7 +108,7 @@ public class MapUtils {
         return path;
     }
 
-    public static List<Coordinate> getShortestItenerary(Map map, Coordinate start, Coordinate end) {
+    public static List<Coordinate> getShortestItenerary(SharedWorld map, Coordinate start, Coordinate end) {
         int [][] mapMatrix = map.getMapMatrix();
         LinkedList<Coordinate> nextToVisit = new LinkedList<>();
         boolean[][] visited = new boolean[mapMatrix.length][mapMatrix[0].length];
