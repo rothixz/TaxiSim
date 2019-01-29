@@ -13,7 +13,6 @@ public class World {
     File mapFile;
     int [][] mapMatrix;
     static List<Coordinate> emptyPos;
-    List<Coordinate> stackPos;
     private int height, width;
     private Window window;
 
@@ -66,7 +65,46 @@ public class World {
         }
 
         window.updateGUI(sb.toString());
-        //System.out.print(sb.toString() + "\n");
+    }
+
+    public void addToMap(TaxiUser o){
+        assert !getEmptyPos().isEmpty();
+
+        int randomEmptyPosIdx = ThreadLocalRandom.current().nextInt(0, emptyPos.size());
+        o.setPos(emptyPos.remove(randomEmptyPosIdx));
+
+        if(o instanceof Client){
+            mapMatrix[o.getPos().getY()][o.getPos().getX()] = 2;
+            clients.add(o);
+        } else if(o instanceof Driver){
+            mapMatrix[o.getPos().getY()][o.getPos().getX()] = 3;
+            availableDrivers.add(o);
+        }
+
+        assert (o.getPos() != null);
+    }
+
+    public TaxiUser callDriver(TaxiUser c){
+        assert !getAvailableDrivers().isEmpty();
+
+        TaxiUser d = getClosestDriver(c);
+        availableDrivers.remove(d);
+        clients.remove(c);
+        trips.put(d, c);
+
+        assert trips.contains(d);
+
+        return d;
+    }
+
+    public void waitDriver(TaxiUser c, TaxiUser d){
+        assert isSamePos(c, d);
+    }
+
+    public TaxiUser waitClient(TaxiUser d) {
+        assert trips.containsKey(d);
+
+        return trips.get(d);
     }
 
     public void moveInMap(TaxiUser o, Coordinate to){
@@ -94,24 +132,37 @@ public class World {
         }
     }
 
-    private void addTaxiUser(TaxiUser o){
 
-        int randomEmptyPosIdx = ThreadLocalRandom.current().nextInt(0, emptyPos.size());
 
-        o.setPos(emptyPos.remove(randomEmptyPosIdx));
+    private TaxiUser getClosestDriver(TaxiUser c) {
+        assert (c.getPos() != null);
 
-        if(o instanceof Client)
-            mapMatrix[o.getPos().getY()][o.getPos().getX()] = 2;
-        else if(o instanceof Driver)
-            mapMatrix[o.getPos().getY()][o.getPos().getX()] = 3;
+        double minDuration = Integer.MAX_VALUE;
+        TaxiUser d = null;
 
-        assert (o.getPos() != null);
+        for (TaxiUser obj : availableDrivers) {
+            double eta = MapUtils.getIteneraryDuration(MapUtils.getShortestItenerary(map, c.getPos(), obj.getPos()));
+            if (eta < minDuration) {
+                minDuration = eta;
+                d = obj;
+            }
+        }
+
+        assert (d != null);
+
+        return d;
     }
 
-    public TaxiUser callDriver(TaxiUser c){
-        assert (!getEmptyPos().isEmpty());
+    public List<TaxiUser> getAvailableDrivers() {
+        return availableDrivers;
+    }
 
-        addTaxiUser(c);
-        clients.add(c);
+    public Hashtable<TaxiUser, TaxiUser> getTrips() {
+        return trips;
+    }
+
+    public boolean isSamePos(TaxiUser d, TaxiUser c) {
+        //System.out.println("Driver in pos: (" + d.getPos().getX() + ", " + d.getPos().getY() + ") and client in pos (" + c.getPos().getX() + ", " + c.getPos().getY() +")");
+        return d.getPos().getX() == c.getPos().getX() && d.getPos().getY() == c.getPos().getY();
     }
 }

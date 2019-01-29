@@ -5,8 +5,12 @@ public class Driver extends TaxiUser implements Runnable {
 
     @Override
     public void run() {
-        TaxiUser c  = world.waitClient(this);
-        world.driveToClient(this, c);
+        world.addToMap(this);
+        TaxiUser c = world.waitClient(this);
+        while(!world.isSamePos(this, c)){
+            world.driveToClient(this, c);
+        }
+
         System.out.println("I have finished my job! [D]" + Thread.currentThread().getId());
     }
 }

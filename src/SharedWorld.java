@@ -13,86 +13,73 @@ public class SharedWorld {
         readyToDraw = 0;
     }
 
-    public TaxiUser callDriver(TaxiUser c) {
-        synchronized (this) {
-            while (map.getEmptyPos().isEmpty()) {
-                try {
-                    wait();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-
+    public synchronized void addToMap(TaxiUser o){
+        while (map.getEmptyPos().isEmpty()) {
             try {
-                cli.acquire();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            map.callDriver(c);
-            notifyAll();
-
-            while (availableDrivers.isEmpty()) {
-                try {
-                    //System.out.println("CallDriver wait");
-                    wait();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            //System.out.println("CallDriver gonna call");
-            TaxiUser d = getClosestDriver(c);
-            availableDrivers.remove(d);
-            trips.put(d, c);
-            notifyAll();
-            return d;
-        }
-    }
-
-    public synchronized TaxiUser waitClient(TaxiUser d) {
-        assert (!map.getEmptyPos().isEmpty());
-
-        map.addTaxiUser(d);
-        assert (d.getPos() != null);
-
-        availableDrivers.add(d);
-        assert (!availableDrivers.isEmpty());
-
-        notifyAll();
-
-        while (!trips.containsKey(d)) {
-            try {
-                //System.out.println("Waiting for a client to choose me [D]" + Thread.currentThread().getId());
                 wait();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
 
-        //System.out.println("A client chose me [D]" + Thread.currentThread().getId());
+        try {
+            if(o instanceof Client){
+                cli.acquire();
+            } else if(o instanceof Driver){
+                dri.acquire();
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
-        assert (!trips.isEmpty());
+        map.addToMap(o);
 
-        return trips.get(d);
+        notifyAll();
     }
 
-    public void waitDriver(TaxiUser c, TaxiUser d) {
-        assert (trips.containsValue(c));
-
+    public TaxiUser callDriver(TaxiUser c) {
         synchronized (this) {
-            while (isSamePos(c, d)) {
+            while (map.getAvailableDrivers().isEmpty()) {
                 try {
-                    //System.out.println("Waiting for the driver to pick me up [C]" + Thread.currentThread().getId());
                     wait();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
+
+            TaxiUser d = map.callDriver(c);
+            notifyAll();
+
+            return d;
+        }
+    }
+
+    public void waitDriver(TaxiUser c, TaxiUser d) {
+        synchronized (this) {
+            while (!map.isSamePos(c, d)) {
+                try {
+                    wait();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            map.waitDriver(c, d);
+        }
+    }
+
+    public synchronized TaxiUser waitClient(TaxiUser d) {
+        while (!map.getTrips().containsKey(d)) {
+            try {
+                wait();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
 
-        //System.out.println("Driver picked me up [C]" + Thread.currentThread().getId());
-        cli.release();
+        TaxiUser c = map.waitClient(d);
+
+        return c;
     }
 
     public synchronized void driveToClient(TaxiUser d, TaxiUser c) {
@@ -103,7 +90,6 @@ public class SharedWorld {
         assert (itinerary.size() > 1);
 
         try {
-            while (!isSamePos(d, c)) {
                 Coordinate newPos = itinerary.remove(1);
                 map.moveInMap(d, newPos);
                 notifyAll();
@@ -136,29 +122,9 @@ public class SharedWorld {
         System.out.println("I reached the client [D]" + d.getItemId());
     }
 
-    private TaxiUser getClosestDriver(TaxiUser c) {
-        assert (c.getPos() != null);
 
-        double minDuration = Integer.MAX_VALUE;
-        TaxiUser d = null;
 
-        for (TaxiUser obj : availableDrivers) {
-            double eta = MapUtils.getIteneraryDuration(MapUtils.getShortestItenerary(map, c.getPos(), obj.getPos()));
-            if (eta < minDuration) {
-                minDuration = eta;
-                d = obj;
-            }
-        }
 
-        assert (d != null);
-
-        return d;
-    }
-
-    private boolean isSamePos(TaxiUser d, TaxiUser c) {
-        //System.out.println("Driver in pos: (" + d.getPos().getX() + ", " + d.getPos().getY() + ") and client in pos (" + c.getPos().getX() + ", " + c.getPos().getY() +")");
-        return d.getPos().getX() == c.getPos().getX() && d.getPos().getY() == c.getPos().getY();
-    }
 
     public synchronized void drawMap() {
         while (!allDriversMoved()) {
