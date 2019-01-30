@@ -64,6 +64,8 @@ public class World {
             sb.append("\n");
         }
 
+        System.out.println(sb.toString());
+
         window.updateGUI(sb.toString());
     }
 
@@ -74,6 +76,11 @@ public class World {
         o.setPos(emptyPos.remove(randomEmptyPosIdx));
 
         if (o instanceof Client) {
+            randomEmptyPosIdx = ThreadLocalRandom.current().nextInt(0, emptyPos.size());
+            List<Coordinate> destination = new ArrayList<>();
+            destination.add(emptyPos.get(randomEmptyPosIdx));
+            o.setItinerary(destination);
+
             mapMatrix[o.getPos().getY()][o.getPos().getX()] = 2;
             clients.add(o);
         } else if (o instanceof Driver) {
@@ -110,6 +117,7 @@ public class World {
     public void move(TaxiUser o){
         Coordinate newPos = o.getItinerary().remove(1);
         moveInMap(o, newPos);
+        printAnsiMap();
     }
 
     public void moveInMap(TaxiUser o, Coordinate to) {
@@ -137,7 +145,14 @@ public class World {
         }
     }
 
-    public synchronized List<Coordinate> getItenerary(TaxiUser d, TaxiUser c) {
+    public void pickUp(TaxiUser c) {
+        Coordinate pos = c.getPos();
+        mapMatrix[pos.getY()][pos.getX()] = 3;
+        stackPos.remove(pos);
+    }
+
+
+    public List<Coordinate> getItenerary(TaxiUser d, TaxiUser c) {
         List<Coordinate> itinerary = MapUtils.getShortestItenerary(this, c.getPos(), d.getPos());
 
         return itinerary;
@@ -170,8 +185,9 @@ public class World {
         return trips;
     }
 
-    public boolean isSamePos(TaxiUser d, TaxiUser c) {
-        //System.out.println("Driver in pos: (" + d.getPos().getX() + ", " + d.getPos().getY() + ") and client in pos (" + c.getPos().getX() + ", " + c.getPos().getY() +")");
-        return d.getPos().getX() == c.getPos().getX() && d.getPos().getY() == c.getPos().getY();
+    public boolean isSamePos(Coordinate d, Coordinate c) {
+        return d.getX() == c.getX() && d.getY() == c.getY();
     }
+
+
 }

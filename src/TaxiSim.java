@@ -15,9 +15,9 @@ public class TaxiSim {
         SharedWorld world = new SharedWorld(map);
 
         while (true){
-            Thread.sleep((long) ThreadLocalRandom.current().nextInt(0, 3000 + 1));
+            Thread.sleep((long) ThreadLocalRandom.current().nextInt(0, 1000 + 1));
             new Thread(new Client(world)).start();
-            Thread.sleep((long) ThreadLocalRandom.current().nextInt(0, 3000 + 1));
+            Thread.sleep((long) ThreadLocalRandom.current().nextInt(0, 1000 + 1));
             new Thread(new Driver(world)).start();
         }
     }

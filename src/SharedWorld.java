@@ -1,15 +1,12 @@
 import java.util.concurrent.Semaphore;
 
 public class SharedWorld {
-    World map;
-    Semaphore cli = new Semaphore(2);
-    Semaphore dri = new Semaphore(1);
-    private int readyToDraw;
-    private boolean allMoved = false;
+    private final World map;
+    private Semaphore cli = new Semaphore(3);
+    private Semaphore dri = new Semaphore(3);
 
     public SharedWorld(World map) {
         this.map = map;
-        readyToDraw = 0;
     }
 
     public synchronized void addToMap(TaxiUser o) {
@@ -32,6 +29,7 @@ public class SharedWorld {
         }
 
         map.addToMap(o);
+        map.printAnsiMap();
 
         notifyAll();
     }
@@ -76,26 +74,29 @@ public class SharedWorld {
             }
         }
 
-        TaxiUser c = map.waitClient(d);
-
-        return c;
+        return map.waitClient(d);
     }
 
     public synchronized void setItinerary(TaxiUser d, TaxiUser c) {
         assert (d.getPos() != null && c.getPos() != null);
 
-        ((Driver) d).setItinerary(map.getItenerary(d, c));
+        d.setItinerary(map.getItenerary(d, c));
     }
 
     public synchronized void move(TaxiUser d){
         map.move(d);
-        map.printAnsiMap();
         notifyAll();
     }
 
-    public boolean isSamePos(TaxiUser d, TaxiUser c) {
+    public synchronized void pickUp(TaxiUser c) {
+        map.pickUp(c);
+    }
+
+    public boolean isSamePos(Coordinate d, Coordinate c) {
        return map.isSamePos(d, c);
     }
+
+
 
     //trips.remove(d);
 }

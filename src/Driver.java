@@ -10,7 +10,12 @@ public class Driver extends TaxiUser implements Runnable {
         world.addToMap(this);
         TaxiUser c = world.waitClient(this);
         world.setItinerary(this, c);
-        while(!world.isSamePos(this, c)){
+        while(!world.isSamePos(getPos(), c.getPos())){
+            world.move(this);
+        }
+        world.pickUp(c);
+        world.setItinerary(this, c);
+        while(!world.isSamePos(getPos(), c.getItinerary().get(0))){
             world.move(this);
         }
 
