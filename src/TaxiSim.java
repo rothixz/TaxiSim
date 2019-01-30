@@ -9,13 +9,10 @@ public class TaxiSim {
         Window window = new Window("teste");
         System.out.println(ANSI_RED + "This text is red!" + ANSI_RESET);
 
-        SharedWorld map = new SharedWorld(args[0], window);
+        World map = new World(args[0], window);
         map.loadMap();
 
-        World world = new World(map);
-
-        Thread r = new MapRenderer(world);
-        r.start();
+        SharedWorld world = new SharedWorld(map);
 
         while (true){
             Thread.sleep((long) ThreadLocalRandom.current().nextInt(0, 3000 + 1));

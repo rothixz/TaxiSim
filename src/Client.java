@@ -1,5 +1,5 @@
 public class Client  extends TaxiUser implements  Runnable {
-    public Client(World world) {
+    public Client(SharedWorld world) {
         super(world);
     }
 

@@ -1,4 +1,3 @@
-import java.util.*;
 import java.util.concurrent.Semaphore;
 
 public class SharedWorld {
@@ -13,7 +12,7 @@ public class SharedWorld {
         readyToDraw = 0;
     }
 
-    public synchronized void addToMap(TaxiUser o){
+    public synchronized void addToMap(TaxiUser o) {
         while (map.getEmptyPos().isEmpty()) {
             try {
                 wait();
@@ -23,9 +22,9 @@ public class SharedWorld {
         }
 
         try {
-            if(o instanceof Client){
+            if (o instanceof Client) {
                 cli.acquire();
-            } else if(o instanceof Driver){
+            } else if (o instanceof Driver) {
                 dri.acquire();
             }
         } catch (InterruptedException e) {
@@ -82,72 +81,21 @@ public class SharedWorld {
         return c;
     }
 
-    public synchronized void driveToClient(TaxiUser d, TaxiUser c) {
+    public synchronized void setItinerary(TaxiUser d, TaxiUser c) {
         assert (d.getPos() != null && c.getPos() != null);
 
-        List<Coordinate> itinerary = MapUtils.getShortestItenerary(map, c.getPos(), d.getPos());
-
-        assert (itinerary.size() > 1);
-
-        try {
-                Coordinate newPos = itinerary.remove(1);
-                map.moveInMap(d, newPos);
-                notifyAll();
-
-                while (!allMoved) {
-                    wait();
-                }
-
-                readyToDraw++;
-
-                //System.out.println("I drove one square meter [D]" + Thread.currentThread().getId());
-
-                if (readyToDraw == trips.size()) {
-                    map.printAnsiMap();
-                    allMoved = false;
-                    readyToDraw = 0;
-
-                    notifyAll();
-                }
-
-                while (allMoved) {
-                    wait();
-                }
-            }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        trips.remove(d);
-        System.out.println("I reached the client [D]" + d.getItemId());
+        ((Driver) d).setItinerary(map.getItenerary(d, c));
     }
 
-
-
-
-
-    public synchronized void drawMap() {
-        while (!allDriversMoved()) {
-            try {
-                wait();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-
-        allMoved = true;
+    public synchronized void move(TaxiUser d){
+        map.move(d);
+        map.printAnsiMap();
         notifyAll();
     }
 
-    private boolean allDriversMoved() {
-        assert (trips != null);
-
-        for (TaxiUser d : trips.keySet()) {
-            if (d.getPrevPos() == d.getPos()) {
-                return false;
-            }
-        }
-
-        return true;
+    public boolean isSamePos(TaxiUser d, TaxiUser c) {
+       return map.isSamePos(d, c);
     }
+
+    //trips.remove(d);
 }

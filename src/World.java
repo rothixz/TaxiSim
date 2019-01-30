@@ -7,11 +7,11 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class World {
     List<Coordinate> stackPos;
-    List <TaxiUser> clients;
+    List<TaxiUser> clients;
     List<TaxiUser> availableDrivers;
-    Hashtable <TaxiUser, TaxiUser> trips;
+    Hashtable<TaxiUser, TaxiUser> trips;
     File mapFile;
-    int [][] mapMatrix;
+    int[][] mapMatrix;
     static List<Coordinate> emptyPos;
     private int height, width;
     private Window window;
@@ -30,7 +30,7 @@ public class World {
         stackPos = new ArrayList<Coordinate>();
         clients = new ArrayList<TaxiUser>();
         trips = new Hashtable<TaxiUser, TaxiUser>();
-        availableDrivers =  new ArrayList<TaxiUser>();
+        availableDrivers = new ArrayList<TaxiUser>();
     }
 
     public boolean loadMap() throws IOException {
@@ -39,26 +39,26 @@ public class World {
         mapMatrix = MapUtils.fileToMatrix(mapFile);
         emptyPos = MapUtils.getEmptyPos(mapMatrix);
 
-        assert (mapMatrix != null && emptyPos != null && height>0 && width>0 && !emptyPos.isEmpty());
+        assert (mapMatrix != null && emptyPos != null && height > 0 && width > 0 && !emptyPos.isEmpty());
 
         return true;
     }
 
-    public void printAnsiMap(){
-        assert (mapMatrix != null && height>0 && width>0);
+    public void printAnsiMap() {
+        assert (mapMatrix != null && height > 0 && width > 0);
 
         StringBuilder sb = new StringBuilder();
 
-        for(int y=0; y<height; y++){
-            for(int x=0; x<width; x++){
-                if(mapMatrix[y][x] == 1)
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                if (mapMatrix[y][x] == 1)
                     sb.append(" ");
 
-                else if(mapMatrix[y][x] == 0)
+                else if (mapMatrix[y][x] == 0)
                     sb.append("\u2588");
-                else if(mapMatrix[y][x] == 2)
+                else if (mapMatrix[y][x] == 2)
                     sb.append("C");
-                else if(mapMatrix[y][x] == 3)
+                else if (mapMatrix[y][x] == 3)
                     sb.append("T");
             }
             sb.append("\n");
@@ -67,16 +67,16 @@ public class World {
         window.updateGUI(sb.toString());
     }
 
-    public void addToMap(TaxiUser o){
+    public void addToMap(TaxiUser o) {
         assert !getEmptyPos().isEmpty();
 
         int randomEmptyPosIdx = ThreadLocalRandom.current().nextInt(0, emptyPos.size());
         o.setPos(emptyPos.remove(randomEmptyPosIdx));
 
-        if(o instanceof Client){
+        if (o instanceof Client) {
             mapMatrix[o.getPos().getY()][o.getPos().getX()] = 2;
             clients.add(o);
-        } else if(o instanceof Driver){
+        } else if (o instanceof Driver) {
             mapMatrix[o.getPos().getY()][o.getPos().getX()] = 3;
             availableDrivers.add(o);
         }
@@ -84,7 +84,7 @@ public class World {
         assert (o.getPos() != null);
     }
 
-    public TaxiUser callDriver(TaxiUser c){
+    public TaxiUser callDriver(TaxiUser c) {
         assert !getAvailableDrivers().isEmpty();
 
         TaxiUser d = getClosestDriver(c);
@@ -97,7 +97,7 @@ public class World {
         return d;
     }
 
-    public void waitDriver(TaxiUser c, TaxiUser d){
+    public void waitDriver(TaxiUser c, TaxiUser d) {
         assert isSamePos(c, d);
     }
 
@@ -107,10 +107,15 @@ public class World {
         return trips.get(d);
     }
 
-    public void moveInMap(TaxiUser o, Coordinate to){
+    public void move(TaxiUser o){
+        Coordinate newPos = o.getItinerary().remove(1);
+        moveInMap(o, newPos);
+    }
+
+    public void moveInMap(TaxiUser o, Coordinate to) {
         assert (o.getPos() != null && to != null && !o.getPos().equals(to) && mapMatrix != null && stackPos != null && emptyPos != null);
 
-        if(!emptyPos.contains(to))
+        if (!emptyPos.contains(to))
             stackPos.add(to);
         else
             emptyPos.remove(to);
@@ -124,7 +129,7 @@ public class World {
         else if (o instanceof Driver)
             mapMatrix[to.getY()][to.getX()] = 3;
 
-        if(!stackPos.contains(from)){
+        if (!stackPos.contains(from)) {
             mapMatrix[from.getY()][from.getX()] = 1;
             emptyPos.add(from);
         } else {
@@ -132,7 +137,11 @@ public class World {
         }
     }
 
+    public synchronized List<Coordinate> getItenerary(TaxiUser d, TaxiUser c) {
+        List<Coordinate> itinerary = MapUtils.getShortestItenerary(this, c.getPos(), d.getPos());
 
+        return itinerary;
+    }
 
     private TaxiUser getClosestDriver(TaxiUser c) {
         assert (c.getPos() != null);
@@ -141,7 +150,7 @@ public class World {
         TaxiUser d = null;
 
         for (TaxiUser obj : availableDrivers) {
-            double eta = MapUtils.getIteneraryDuration(MapUtils.getShortestItenerary(map, c.getPos(), obj.getPos()));
+            double eta = MapUtils.getIteneraryDuration(MapUtils.getShortestItenerary(this, c.getPos(), obj.getPos()));
             if (eta < minDuration) {
                 minDuration = eta;
                 d = obj;

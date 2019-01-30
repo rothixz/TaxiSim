@@ -1,10 +1,13 @@
+import java.util.List;
+
 public class TaxiUser {
-    protected final World world;
+    protected final SharedWorld world;
     protected Coordinate pos, prevPos;
     protected static int unique_id = 1;
     private int itemId;
+    private List<Coordinate> itinerary;
 
-    public TaxiUser(World world) {
+    public TaxiUser(SharedWorld world) {
         this.world = world;
         itemId = unique_id;
         unique_id++;
@@ -30,4 +33,14 @@ public class TaxiUser {
     public void setPrevPos(Coordinate prevPos) {
         this.prevPos = prevPos;
     }
+
+    public void setItinerary(List<Coordinate> itinerary) {
+        this.itinerary = itinerary;
+    }
+
+
+    public List<Coordinate> getItinerary() {
+        return itinerary;
+    }
+
 }
