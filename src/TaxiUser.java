@@ -1,15 +1,19 @@
 import java.util.List;
 
+/*
+    This class represents a TaxiUser which can be spawned in the world
+ */
 public class TaxiUser {
+    protected static int unique_id = 1;
     protected final SharedWorld world;
     protected Coordinate pos, prevPos;
-    protected static int unique_id = 1;
-    private int itemId;
+    // Unique identifier of the the TaxiUser
+    private int id;
     private List<Coordinate> itinerary;
 
     public TaxiUser(SharedWorld world) {
         this.world = world;
-        itemId = unique_id;
+        id = unique_id;
         unique_id++;
     }
 
@@ -17,30 +21,20 @@ public class TaxiUser {
         return pos;
     }
 
-
-    public int getItemId() {
-        return itemId;
-    }
-
     public void setPos(Coordinate pos) {
         this.pos = pos;
-    }
-
-    public Coordinate getPrevPos() {
-        return prevPos;
     }
 
     public void setPrevPos(Coordinate prevPos) {
         this.prevPos = prevPos;
     }
 
-    public void setItinerary(List<Coordinate> itinerary) {
-        this.itinerary = itinerary;
-    }
-
-
     public List<Coordinate> getItinerary() {
         return itinerary;
+    }
+
+    public void setItinerary(List<Coordinate> itinerary) {
+        this.itinerary = itinerary;
     }
 
 }

@@ -3,12 +3,15 @@ import java.util.*;
 
 public class MapUtils {
     private static int[][] DIRECTIONS
-            = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } };
+            = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};
 
+    public static int countFileRows(File file) {
+        InputStream is = null;
+        int count = 0;
 
-    public static int countFileRows(File file) throws IOException {
-        InputStream is = new BufferedInputStream(new FileInputStream(file));
         try {
+            is = new BufferedInputStream(new FileInputStream(file));
+
             byte[] c = new byte[1024];
 
             int readChars = is.read(c);
@@ -16,9 +19,8 @@ public class MapUtils {
                 return 0;
             }
 
-            int count = 0;
             while (readChars == 1024) {
-                for (int i=0; i<1024;) {
+                for (int i = 0; i < 1024; ) {
                     if (c[i++] == '\n') {
                         ++count;
                     }
@@ -27,7 +29,7 @@ public class MapUtils {
             }
 
             while (readChars != -1) {
-                for (int i=0; i<readChars; ++i) {
+                for (int i = 0; i < readChars; ++i) {
                     if (c[i] == '\n') {
                         ++count;
                     }
@@ -35,60 +37,69 @@ public class MapUtils {
                 readChars = is.read(c);
             }
 
-            return count == 0 ? 1 : count;
-        } finally {
             is.close();
+
+        } catch (FileNotFoundException e) {
+            System.out.println("File not found!");
+            System.exit(1);
+        } catch (IOException e) {
+            System.out.println("I/O Error!");
+            System.exit(1);
         }
+
+        return count == 0 ? 1 : count;
     }
 
-    public static int countFileColumns(File file) throws IOException {
+    public static int countFileColumns(File file) {
         Scanner sc;
         int columns = -1;
 
-        try{
+        try {
             sc = new Scanner(new BufferedReader(new FileReader(file)));
             columns = sc.nextLine().trim().split(" ").length;
             sc.close();
-        } catch (FileNotFoundException e){
-
+        } catch (FileNotFoundException e) {
+            System.out.println("File not found!");
+            System.exit(1);
         }
 
-       return columns;
+        return columns;
     }
 
-    public static int [][] fileToMatrix(File file) throws IOException {
+    public static int[][] fileToMatrix(File file) {
         Scanner sc;
 
         int width = countFileColumns(file);
-        int heigth = countFileRows(file);
+        int height = countFileRows(file);
 
-        int [][] matrix = new int[heigth][width];
+        int[][] matrix = new int[height][width];
 
-        try{
+        try {
             sc = new Scanner(new BufferedReader(new FileReader(file)));
 
-            while(sc.hasNextLine()) {
-                for (int i=0; i<matrix.length; i++) {
+            while (sc.hasNextLine()) {
+                for (int i = 0; i < matrix.length; i++) {
                     String[] line = sc.nextLine().trim().split(" ");
-                    for (int j=0; j<line.length; j++) {
+                    for (int j = 0; j < line.length; j++) {
                         matrix[i][j] = Integer.parseInt(line[j]);
                     }
                 }
             }
-        } catch (FileNotFoundException e){
-
+        } catch (FileNotFoundException e) {
+            System.out.println("File not found!");
+            System.exit(1);
         }
 
         return matrix;
     }
 
-    public static ArrayList<Coordinate> getEmptyPos(int [][] mapMatrix){
+    public static ArrayList<Coordinate> getEmptyPos(int[][] mapMatrix) {
         ArrayList<Coordinate> emptyPos = new ArrayList<>();
 
-        for(int y=0; y<mapMatrix.length; y++) {
+        for (int y = 0; y < mapMatrix.length; y++) {
             for (int x = 0; x < mapMatrix[0].length; x++) {
-                if(mapMatrix[y][x] == 1){
-                    emptyPos.add(new Coordinate(x,y));
+                if (mapMatrix[y][x] == 1) {
+                    emptyPos.add(new Coordinate(x, y));
                 }
             }
         }
@@ -108,8 +119,8 @@ public class MapUtils {
         return path;
     }
 
-    public static List<Coordinate> getShortestItenerary(World map, Coordinate start, Coordinate end) {
-        int [][] mapMatrix = map.getMapMatrix();
+    public static List<Coordinate> getShortestItenerary(World map, Coordinate end, Coordinate start) {
+        int[][] mapMatrix = map.getMapMatrix();
         LinkedList<Coordinate> nextToVisit = new LinkedList<>();
         boolean[][] visited = new boolean[mapMatrix.length][mapMatrix[0].length];
         nextToVisit.add(start);
@@ -125,14 +136,15 @@ public class MapUtils {
             }
 
             // If is a wall
-            if (mapMatrix[cur.getY()][cur.getX()] == 0){
+            if (mapMatrix[cur.getY()][cur.getX()] == 0) {
                 visited[cur.getY()][cur.getX()] = true;
                 continue;
             }
 
             // If is endpoint
             if (cur.getX() == end.getX() && cur.getY() == end.getY()) {
-                return backtrackPath(cur);
+                List<Coordinate> a = backtrackPath(cur);
+                return a;
             }
 
             for (int[] direction : DIRECTIONS) {
@@ -159,8 +171,8 @@ public class MapUtils {
     }
 
 
-    public static double getIteneraryDuration(List<Coordinate>itinerary){
-        return (itinerary.size()-1)*Constants.VELOCITY;
+    public static double getItineraryDuration(List<Coordinate> itinerary) {
+        return (itinerary.size() - 1) * Constants.VELOCITY;
     }
 
 

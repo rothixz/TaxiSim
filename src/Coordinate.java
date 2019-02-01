@@ -1,6 +1,10 @@
+/*
+    This class represents a 2D Coordinate of a map
+ */
 public class Coordinate {
-    private int x, y;
+    // Auxiliary variable representing the previous coordinate in an itinerary
     Coordinate parent;
+    private int x, y;
 
     public Coordinate(int x, int y) {
         this.x = x;
@@ -42,5 +46,10 @@ public class Coordinate {
         }
 
         return true;
+    }
+
+    @Override
+    public String toString() {
+        return "X: " + x + " Y: " + y;
     }
 }

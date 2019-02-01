@@ -1,20 +1,44 @@
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class World {
-    List<Coordinate> stackPos;
-    List<TaxiUser> clients;
-    List<TaxiUser> availableDrivers;
-    Hashtable<TaxiUser, TaxiUser> trips;
-    File mapFile;
-    int[][] mapMatrix;
+/*
+    This class is used to represent a world of drivers and clients.
+    It has a map where the drivers and clients spawn and where drivers can move around picking clients
+    and delivering them to their destinations.
+ */
+public class World implements WorldInterface {
+    // List of drivable or spawnable positions
     static List<Coordinate> emptyPos;
-    private int height, width;
+    // List of coordinates which have more than one entity present
+    List<Coordinate> stackPos;
+    // List of clients which are present in the world
+    List<TaxiUser> clients;
+    // List of drivers which are present in the world
+    List<TaxiUser> drivers;
+    // List of trips being executed
+    Hashtable<TaxiUser, TaxiUser> trips;
+    // File with the world map
+    File mapFile;
+    // 2D Map coordinate matrix representation
+    int[][] mapMatrix;
+    // Height of the map
+    private int height;
+    // Width of the map
+    private int width;
+    // Swing window where the map is visually represented
     private Window window;
+
+    public World(String mapFilename, Window window) {
+        this.window = window;
+        mapFile = new File(mapFilename);
+        stackPos = new ArrayList<Coordinate>();
+        clients = new ArrayList<TaxiUser>();
+        trips = new Hashtable<TaxiUser, TaxiUser>();
+        drivers = new ArrayList<TaxiUser>();
+    }
 
     public int[][] getMapMatrix() {
         return mapMatrix;
@@ -24,24 +48,13 @@ public class World {
         return emptyPos;
     }
 
-    public World(String mapFilename, Window window) {
-        this.window = window;
-        mapFile = new File(mapFilename);
-        stackPos = new ArrayList<Coordinate>();
-        clients = new ArrayList<TaxiUser>();
-        trips = new Hashtable<TaxiUser, TaxiUser>();
-        availableDrivers = new ArrayList<TaxiUser>();
-    }
-
-    public boolean loadMap() throws IOException {
-        height = MapUtils.countFileRows(mapFile);
-        width = MapUtils.countFileColumns(mapFile);
+    public void loadMap() {
         mapMatrix = MapUtils.fileToMatrix(mapFile);
+        height = mapMatrix.length;
+        width = mapMatrix[0].length;
         emptyPos = MapUtils.getEmptyPos(mapMatrix);
 
         assert (mapMatrix != null && emptyPos != null && height > 0 && width > 0 && !emptyPos.isEmpty());
-
-        return true;
     }
 
     public void printAnsiMap() {
@@ -53,7 +66,6 @@ public class World {
             for (int x = 0; x < width; x++) {
                 if (mapMatrix[y][x] == 1)
                     sb.append(" ");
-
                 else if (mapMatrix[y][x] == 0)
                     sb.append("\u2588");
                 else if (mapMatrix[y][x] == 2)
@@ -80,22 +92,21 @@ public class World {
             List<Coordinate> destination = new ArrayList<>();
             destination.add(emptyPos.get(randomEmptyPosIdx));
             o.setItinerary(destination);
-
             mapMatrix[o.getPos().getY()][o.getPos().getX()] = 2;
             clients.add(o);
         } else if (o instanceof Driver) {
             mapMatrix[o.getPos().getY()][o.getPos().getX()] = 3;
-            availableDrivers.add(o);
+            drivers.add(o);
         }
 
         assert (o.getPos() != null);
     }
 
     public TaxiUser callDriver(TaxiUser c) {
-        assert !getAvailableDrivers().isEmpty();
+        assert !getDrivers().isEmpty();
 
         TaxiUser d = getClosestDriver(c);
-        availableDrivers.remove(d);
+        drivers.remove(d);
         clients.remove(c);
         trips.put(d, c);
 
@@ -105,7 +116,11 @@ public class World {
     }
 
     public void waitDriver(TaxiUser c, TaxiUser d) {
-        assert isSamePos(c, d);
+        assert isSamePos(c.getPos(), d.getPos());
+    }
+
+    public void waitDelivery(Client c) {
+        assert isSamePos(c.getPos(), c.getItinerary().get(0));
     }
 
     public TaxiUser waitClient(TaxiUser d) {
@@ -114,10 +129,12 @@ public class World {
         return trips.get(d);
     }
 
-    public void move(TaxiUser o){
+    public void move(TaxiUser o) {
         Coordinate newPos = o.getItinerary().remove(1);
         moveInMap(o, newPos);
-        printAnsiMap();
+
+        if (((Driver) o).isDelivering())
+            trips.get(o).setPos(newPos);
     }
 
     public void moveInMap(TaxiUser o, Coordinate to) {
@@ -145,27 +162,37 @@ public class World {
         }
     }
 
-    public void pickUp(TaxiUser c) {
+    public void pickUp(TaxiUser d, TaxiUser c) {
         Coordinate pos = c.getPos();
         mapMatrix[pos.getY()][pos.getX()] = 3;
         stackPos.remove(pos);
+        ((Driver) d).setDelivering(true);
     }
 
+    public void deliver(TaxiUser d, TaxiUser c) {
+        Coordinate pos = d.getPos();
+        stackPos.remove(pos);
+        ((Driver) d).setDelivering(false);
+        trips.remove(d);
+    }
 
-    public List<Coordinate> getItenerary(TaxiUser d, TaxiUser c) {
-        List<Coordinate> itinerary = MapUtils.getShortestItenerary(this, c.getPos(), d.getPos());
+    public void available(Driver d) {
+        drivers.add(d);
+    }
 
+    public List<Coordinate> getItenerary(TaxiUser d, Coordinate c) {
+        List<Coordinate> itinerary = MapUtils.getShortestItenerary(this, d.getPos(), c);
         return itinerary;
     }
 
-    private TaxiUser getClosestDriver(TaxiUser c) {
+    public TaxiUser getClosestDriver(TaxiUser c) {
         assert (c.getPos() != null);
 
         double minDuration = Integer.MAX_VALUE;
         TaxiUser d = null;
 
-        for (TaxiUser obj : availableDrivers) {
-            double eta = MapUtils.getIteneraryDuration(MapUtils.getShortestItenerary(this, c.getPos(), obj.getPos()));
+        for (TaxiUser obj : drivers) {
+            double eta = MapUtils.getItineraryDuration(MapUtils.getShortestItenerary(this, obj.getPos(), c.getPos()));
             if (eta < minDuration) {
                 minDuration = eta;
                 d = obj;
@@ -177,8 +204,8 @@ public class World {
         return d;
     }
 
-    public List<TaxiUser> getAvailableDrivers() {
-        return availableDrivers;
+    public List<TaxiUser> getDrivers() {
+        return drivers;
     }
 
     public Hashtable<TaxiUser, TaxiUser> getTrips() {
@@ -188,6 +215,4 @@ public class World {
     public boolean isSamePos(Coordinate d, Coordinate c) {
         return d.getX() == c.getX() && d.getY() == c.getY();
     }
-
-
 }

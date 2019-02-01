@@ -1,8 +1,9 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.Font;
-import javax.swing.JEditorPane;
 
+/*
+    This is the swing windows which visually represents the world map
+ */
 public class Window extends JFrame {
     private JTextPane countLabel1 = new JTextPane();
 

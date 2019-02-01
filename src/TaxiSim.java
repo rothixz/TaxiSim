@@ -1,24 +1,34 @@
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 
+/*
+    This is the Taxi simulation, it adds Clients and drivers to the World
+ */
 public class TaxiSim {
     public static void main(String[] args) throws IOException, InterruptedException {
-          final String ANSI_RESET = "\u001B[0m";
-          final String ANSI_RED = "\u001B[31m";
+        int numberTaxis = 2;
 
-        Window window = new Window("teste");
-        System.out.println(ANSI_RED + "This text is red!" + ANSI_RESET);
+        if (args.length != 1) {
+            System.out.println("Insert the map filename in the arguments.");
+            System.exit(1);
+        }
 
-        World map = new World(args[0], window);
+        Window window = new Window("Taxi Simulation");
+        WorldInterface map = new World(args[0], window);
         map.loadMap();
 
         SharedWorld world = new SharedWorld(map);
 
-        while (true){
+        ExecutorService executor = Executors.newFixedThreadPool(4);
+
+        for (int i = 0; i <= numberTaxis; i++) {
+            executor.submit((new Client(world)));
             Thread.sleep((long) ThreadLocalRandom.current().nextInt(0, 1000 + 1));
-            new Thread(new Client(world)).start();
+            executor.submit((new Driver(world)));
             Thread.sleep((long) ThreadLocalRandom.current().nextInt(0, 1000 + 1));
-            new Thread(new Driver(world)).start();
+            executor.submit((new Client(world)));
         }
     }
 }
